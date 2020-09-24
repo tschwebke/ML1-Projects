@@ -7,9 +7,13 @@ MiniLab/Data/database_rev.csv
 Lab 1/Data/database.csv
 Lab 1/Data/database_rev.csv
 
+MiniLab/Data/database_original.csv
+MiniLab/Data/database_rev.csv
+MiniLab/Data/database_dummy.csv
+
 Lab 1/FINAL SUBMISSION/*
 MiniLab/Jupyter Notebooks/notes.txt
 Lab 1/Final Submission/FINAL_SUBMISSION.ipynb
-MiniLab/.DS_Store
+*/.DS_Store
+*/*/.DS_Store
 MiniLab/Jupyter Notebooks/.DS_Store
-.DS_Store

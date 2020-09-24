@@ -1,0 +1,778 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Logistic Regression and Support Vector Machine\n",
+    "***"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Table of Contents<a id='TOC'></a>\n",
+    "---\n",
+    "1. <a href='#test-train'>Test/Train</a><br>\n",
+    "2. <a href='#models'>Models</a><br>\n",
+    "2.1 <a href='#logistic-regression'>Logistic Regression</a><br>\n",
+    "2.2 <a href='#support-vector-machine'>Support Vector Machine</a><br>\n",
+    "3. <a href='#model-analysis'>Model Analysis</a><br>\n",
+    "3.1 <a href='#logistic-regression-weights'>Logit Weights</a><br>\n",
+    "3.2 <a href='#support-vector'>Support Vectors</a><br>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Libraries & Data <a id='libraries-data'></a>\n",
+    "---"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [
+    {
+     "output_type": "execute_result",
+     "data": {
+      "text/plain": "<IPython.core.display.HTML object>",
+      "text/html": "<script>\ncode_show=true; \nfunction code_toggle() {\n if (code_show){\n $('div.input').hide();\n } else {\n $('div.input').show();\n }\n code_show = !code_show\n} \n$( document ).ready(code_toggle);\n</script>\n<form action=\"javascript:code_toggle()\"><input type=\"submit\" value=\"Click here to toggle on/off the raw code.\"></form>"
+     },
+     "metadata": {},
+     "execution_count": 1
+    }
+   ],
+   "source": [
+    "from IPython.display import HTML\n",
+    "\n",
+    "HTML('''<script>\n",
+    "code_show=true; \n",
+    "function code_toggle() {\n",
+    " if (code_show){\n",
+    " $('div.input').hide();\n",
+    " } else {\n",
+    " $('div.input').show();\n",
+    " }\n",
+    " code_show = !code_show\n",
+    "} \n",
+    "$( document ).ready(code_toggle);\n",
+    "</script>\n",
+    "<form action=\"javascript:code_toggle()\"><input type=\"submit\" value=\"Click here to toggle on/off the raw code.\"></form>''')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Libraries\n",
+    "# IMPORT LIBRARIES\n",
+    "# hide warnings\n",
+    "import warnings\n",
+    "warnings.filterwarnings('ignore')\n",
+    "\n",
+    "# all imported libraries used for analysis\n",
+    "import numpy as np\n",
+    "import pandas as pd \n",
+    "import os \n",
+    "import urllib\n",
+    "import copy\n",
+    "import plotly \n",
+    "import seaborn as sns \n",
+    "import plotly.graph_objects as go\n",
+    "import plotly.express as px\n",
+    "import statsmodels.api as sm\n",
+    "import random\n",
+    "import time\n",
+    "import matplotlib.pyplot as plt\n",
+    "%matplotlib inline \n",
+    "\n",
+    "from geopy.geocoders import Nominatim\n",
+    "from plotly.subplots import make_subplots\n",
+    "from datetime import datetime\n",
+    "from pandas.plotting import scatter_matrix\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "from sklearn.model_selection import cross_val_score\n",
+    "from sklearn.model_selection import ShuffleSplit\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn.decomposition import PCA\n",
+    "from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA\n",
+    "from sklearn.utils import resample\n",
+    "from sklearn import preprocessing\n",
+    "from sklearn.preprocessing import StandardScaler\n",
+    "from sklearn.preprocessing import LabelEncoder\n",
+    "from sklearn.preprocessing import OrdinalEncoder\n",
+    "from sklearn.preprocessing import OneHotEncoder\n",
+    "from sklearn.feature_selection import RFE\n",
+    "from sklearn.feature_selection import SelectKBest\n",
+    "from sklearn.feature_selection import chi2\n",
+    "from sklearn import metrics as mt\n",
+    "from sklearn.metrics import roc_auc_score\n",
+    "from sklearn.metrics import roc_curve\n",
+    "from sklearn.metrics import classification_report\n",
+    "from sklearn.metrics import plot_confusion_matrix\n",
+    "from sklearn.metrics import confusion_matrix\n",
+    "\n",
+    "# set color scheme and style for seaborn\n",
+    "sns.set(color_codes=True)\n",
+    "sns.set_style('whitegrid')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "text": "<class 'pandas.core.frame.DataFrame'>\nRangeIndex: 638454 entries, 0 to 638453\nData columns (total 26 columns):\n #   Column                      Non-Null Count   Dtype \n---  ------                      --------------   ----- \n 0   Record ID                   638454 non-null  int64 \n 1   Agency Code                 638454 non-null  object\n 2   Agency Name                 638454 non-null  object\n 3   Agency Type                 638454 non-null  object\n 4   City                        638454 non-null  object\n 5   State                       638454 non-null  object\n 6   Year                        638454 non-null  int64 \n 7   Month                       638454 non-null  object\n 8   Incident                    638454 non-null  int64 \n 9   Crime Type                  638454 non-null  object\n 10  Crime Solved                638454 non-null  int64 \n 11  Victim Sex                  638454 non-null  object\n 12  Victim Age                  638454 non-null  int64 \n 13  Victim Race                 638454 non-null  object\n 14  Victim Ethnicity            638454 non-null  object\n 15  Perpetrator Sex             638454 non-null  object\n 16  Perpetrator Age             638454 non-null  int64 \n 17  Perpetrator Race            638454 non-null  object\n 18  Perpetrator Ethnicity       638454 non-null  object\n 19  Relationship                638454 non-null  object\n 20  Weapon                      638454 non-null  object\n 21  Perpetrator Count           638454 non-null  int64 \n 22  Victim_Age_Group            638454 non-null  object\n 23  Perpetrator_Age_Group       638454 non-null  object\n 24  Perpetrator_Race_Ethnicity  638454 non-null  object\n 25  Relationship_Group          638454 non-null  object\ndtypes: int64(7), object(19)\nmemory usage: 126.6+ MB\n"
+    }
+   ],
+   "source": [
+    "# Read the database.csv file and store in a dataframe\n",
+    "df=pd.read_csv('../Data/database_rev.csv')\n",
+    "df.info()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_categorical = df.drop(['Victim_Age_Group','Perpetrator_Age_Group', 'Perpetrator_Race_Ethnicity', \n",
+    "    'Relationship_Group'], axis=1).select_dtypes(include='object')\n",
+    "cat_col = df_categorical.columns.values\n",
+    "categorical = np.delete(cat_col, [0,1])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "continuous_col = list(df.describe().columns.values)\n",
+    "df_continuous = df[continuous_col]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def dummy_code(col, df): # input the column names and dataframe\n",
+    "    df_dummy = pd.DataFrame()\n",
+    "    for val in col:\n",
+    "        df_dummy_temp = pd.get_dummies(df[val], prefix=val)\n",
+    "        df_dummy = pd.concat([df_dummy, df_dummy_temp], axis=1, sort=False)\n",
+    "    return df_dummy\n",
+    "\n",
+    "df_dummy = dummy_code(categorical, df)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df_dummy = df_dummy.merge(df_continuous, on=None, left_index=True, right_index=True, how='outer')\n",
+    "df_dummy = df_dummy.merge(df[['Agency Name', 'Agency Code']], on=None, left_index=True, right_index=True, how='outer')\n",
+    "df_dummy['Perpetrator Age_0'] = [1 if pa==0 else 0 for pa in df['Perpetrator Age']]\n",
+    "\n",
+    "df_dummy = df_dummy.select_dtypes(exclude=['object'])\n",
+    "\n",
+    "df_new = df_dummy"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# One-Hot Encode\n",
+    "#df_enc = df\n",
+    "\n",
+    "# get columns where dtype is object\n",
+    "#df_enc_obj = df_enc.loc[:, df_enc.dtypes == object]\n",
+    "#df_enc_int = df_enc.loc[:, df_enc.dtypes != object]\n",
+    "\n",
+    "# one hot encode\n",
+    "#enc = OneHotEncoder(handle_unknown='ignore')\n",
+    "#df_encoded = enc.fit(df_enc_obj.astype(str)).transform(df_enc_obj.astype(str)).toarray()\n",
+    "#names = enc.get_feature_names(df_enc_obj.columns)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# create dataframe and merge integer values\n",
+    "#df_ohc = pd.DataFrame(df_encoded, columns=names)\n",
+    "# df_ohc = pd.merge(df_ohc, df_enc_int, how='outer', left_index=True, right_index=True, on=None)\n",
+    "#df_ohc = pd.concat([df_ohc, df_enc_int], axis=1, sort=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 1. Test/Train Split <a id='test-train'></a>\n",
+    "---\n",
+    "***Walter***"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Train/Test Split 0.8/0.2\n",
+    "# set seed\n",
+    "random.seed(1234)\n",
+    "#-------------------------------------------------------------#\n",
+    "# split into train/test\n",
+    "y = df_new['Crime Solved'].values\n",
+    "X = df_new.drop(['Crime Solved'], axis = 1).values\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# ONE-HOT ENCODE\n",
+    "#-------------------------------------------------------------#\n",
+    "# split into train/test\n",
+    "#y = df_ohc[['Crime Solved_Yes', 'Crime Solved_No']]\n",
+    "#x = df_ohc.drop([['Crime Solved_Yes', 'Crime Solved_No']], axis = 1)\n",
+    "#x_train,x_test,y_train,y_test=train_test_split(x,y,test_size=0.2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "text": "Unbalanced data: Crime Solved\n0    38089\n1    89601\nName: Record ID, dtype: int64\n\n\nBalanced data: Crime Solved\n0    38089\n1    38089\nName: Record ID, dtype: int64\n"
+    }
+   ],
+   "source": [
+    "# Downsampling\n",
+    "#-------------------------------------------------------------#\n",
+    "# set seed\n",
+    "random.seed(1234)\n",
+    "#-------------------------------------------------------------#\n",
+    "# split into train/test\n",
+    "y = df_new['Crime Solved']\n",
+    "X = df_new.drop(['Crime Solved'], axis = 1)\n",
+    "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.8)\n",
+    "#-------------------------------------------------------------#\n",
+    "training_df = X_train\n",
+    "training_df['Crime Solved'] = y_train\n",
+    "print(f'Unbalanced data: {training_df.groupby(\"Crime Solved\").count()[\"Record ID\"]}')\n",
+    "#-------------------------------------------------------------#\n",
+    "# Separate majority and minority classes\n",
+    "fourty = round((len(df_new)*0.8)/2,)\n",
+    "\n",
+    "df_majority = training_df[training_df['Crime Solved']==1]\n",
+    "df_minority = training_df[training_df['Crime Solved']==0]\n",
+    "      \n",
+    "# Downsample majority class\n",
+    "quarter = int(round(len(df_new)/4,0))\n",
+    "df_majority_downsampled = resample(df_majority, \n",
+    "                                  replace=False,    # sample without replacement\n",
+    "                                  n_samples=len(df_minority),     # to match minority class\n",
+    "                                  random_state=123) # reproducible results\n",
+    " \n",
+    "# Combine minority class with downsampled majority class\n",
+    "df_downsampled = pd.concat([df_majority_downsampled, df_minority])\n",
+    "print(f'\\n\\nBalanced data: {df_downsampled.groupby(\"Crime Solved\").count()[\"Record ID\"]}')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "text": "Actual no. of records: 562276, expected no. of records: 562276\nValidation Complete\n"
+    }
+   ],
+   "source": [
+    "# Final train/test split (80/20)\n",
+    "df_training = df_downsampled.reset_index()\n",
+    "index_train = df_training['index']\n",
+    "df_training = df_training.drop('index', axis=1)\n",
+    "#-------------------------------------------------------------#\n",
+    "\n",
+    "# index_train.values\n",
+    "full_ind = df_new.index.values\n",
+    "train_ind = index_train.values\n",
+    "mask = np.isin(full_ind, train_ind, invert=True)\n",
+    "test_ind = full_ind[mask]\n",
+    "print('Actual no. of records: ' + str(len(test_ind))+', expected no. of records: ' + str(len(df) - len(index_train.values) ))\n",
+    "\n",
+    "if len(test_ind) == (len(df_new) - len(index_train.values)):\n",
+    "     df_test = df.iloc[mask]\n",
+    "     train_amt = quarter*2\n",
+    "     test_amt = quarter\n",
+    "     print('Validation Complete')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "text": "Train Set:0.11931634855447691 Test Set:0.8806836514455231\n"
+    }
+   ],
+   "source": [
+    "print(f'Train Set:{len(df_training)/len(df_new)} Test Set:{len(df_test)/len(df_new)}')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {},
+   "outputs": [
+    {
+     "output_type": "execute_result",
+     "data": {
+      "text/plain": "1    38089\n0    38089\nName: Crime Solved, dtype: int64"
+     },
+     "metadata": {},
+     "execution_count": 15
+    }
+   ],
+   "source": [
+    "X_train = df_training.drop('Crime Solved', axis=1)\n",
+    "X_test =  df_test.drop('Crime Solved', axis=1)\n",
+    "y_train = df_training['Crime Solved']\n",
+    "y_test = df_test['Crime Solved']\n",
+    "y_train.value_counts()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# to use the cross validation object in scikit learn, we need to grab an instance\n",
+    "#    of the object and set it up. This object will be able to split our data into \n",
+    "#    training and testing splits\n",
+    "num_cv_iterations = 1\n",
+    "num_instances = len(y)\n",
+    "cv_object = ShuffleSplit(n_splits=num_cv_iterations, test_size  = 0.2)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. Models <a id='models'></a>\n",
+    "---\n",
+    "Create a logistic regression model and a support vector machine model for the\n",
+    "classification task involved with your dataset. Assess how well each model performs (use\n",
+    "80/20 training/testing split for your data). Adjust parameters of the models to make them more\n",
+    "accurate. If your dataset size requires the use of stochastic gradient descent, then linear kernel\n",
+    "only is fine to use."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "***Assumptions***<br>\n",
+    "-fill out all assumptions made-\n",
+    "\n",
+    "https://scikit-learn.org/stable/auto_examples/compose/plot_column_transformer_mixed_types.html?highlight=logistic%20regression\n",
+    "https://www.geeksforgeeks.org/understanding-logistic-regression/\n",
+    "https://careerfoundry.com/en/blog/data-analytics/what-is-logistic-regression/\n",
+    "https://nickmccullum.com/python-machine-learning/logistic-regression-python/#handling-categorical-data-with-dummy-variables"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 2.1 Logistic Regression <a id='logistic-regression'></a>\n",
+    "***\n",
+    "***Thad & Jamie***"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "text": "Best parameter (CV score=0.983):\n{'logistic__C': 0.046415888336127774, 'pca__n_components': 30}\n"
+    },
+    {
+     "output_type": "display_data",
+     "data": {
+      "text/plain": "<Figure size 432x432 with 2 Axes>",
+      "image/svg+xml": "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\r\n<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\"\r\n  \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\r\n<!-- Created with matplotlib (https://matplotlib.org/) -->\r\n<svg height=\"421.467344pt\" version=\"1.1\" viewBox=\"0 0 421.593438 421.467344\" width=\"421.593438pt\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\r\n <metadata>\r\n  <rdf:RDF xmlns:cc=\"http://creativecommons.org/ns#\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\r\n   <cc:Work>\r\n    <dc:type rdf:resource=\"http://purl.org/dc/dcmitype/StillImage\"/>\r\n    <dc:date>2020-09-23T17:04:01.116130</dc:date>\r\n    <dc:format>image/svg+xml</dc:format>\r\n    <dc:creator>\r\n     <cc:Agent>\r\n      <dc:title>Matplotlib v3.3.1, https://matplotlib.org/</dc:title>\r\n     </cc:Agent>\r\n    </dc:creator>\r\n   </cc:Work>\r\n  </rdf:RDF>\r\n </metadata>\r\n <defs>\r\n  <style type=\"text/css\">*{stroke-linecap:butt;stroke-linejoin:round;}</style>\r\n </defs>\r\n <g id=\"figure_1\">\r\n  <g id=\"patch_1\">\r\n   <path d=\"M 0 421.467344 \r\nL 421.593438 421.467344 \r\nL 421.593438 0 \r\nL 0 0 \r\nz\r\n\" style=\"fill:#ffffff;\"/>\r\n  </g>\r\n  <g id=\"axes_1\">\r\n   <g id=\"patch_2\">\r\n    <path d=\"M 53.368281 186.986562 \r\nL 408.276406 186.986562 \r\nL 408.276406 7.2 \r\nL 53.368281 7.2 \r\nz\r\n\" style=\"fill:#ffffff;\"/>\r\n   </g>\r\n   <g id=\"matplotlib.axis_1\">\r\n    <g id=\"xtick_1\">\r\n     <g id=\"line2d_1\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 58.366987 186.986562 \r\nL 58.366987 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_2\">\r\n     <g id=\"line2d_2\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 108.354047 186.986562 \r\nL 108.354047 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_3\">\r\n     <g id=\"line2d_3\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 158.341107 186.986562 \r\nL 158.341107 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_4\">\r\n     <g id=\"line2d_4\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 208.328167 186.986562 \r\nL 208.328167 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_5\">\r\n     <g id=\"line2d_5\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 258.315227 186.986562 \r\nL 258.315227 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_6\">\r\n     <g id=\"line2d_6\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 308.302287 186.986562 \r\nL 308.302287 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_7\">\r\n     <g id=\"line2d_7\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 358.289346 186.986562 \r\nL 358.289346 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_8\">\r\n     <g id=\"line2d_8\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 408.276406 186.986562 \r\nL 408.276406 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n    </g>\r\n   </g>\r\n   <g id=\"matplotlib.axis_2\">\r\n    <g id=\"ytick_1\">\r\n     <g id=\"line2d_9\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 53.368281 178.814446 \r\nL 408.276406 178.814446 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_1\">\r\n      <!-- 0.0 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(28.578281 182.751243)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 4.15625 35.296875 \r\nQ 4.15625 48 6.765625 55.734375 \r\nQ 9.375 63.484375 14.515625 67.671875 \r\nQ 19.671875 71.875 27.484375 71.875 \r\nQ 33.25 71.875 37.59375 69.546875 \r\nQ 41.9375 67.234375 44.765625 62.859375 \r\nQ 47.609375 58.5 49.21875 52.21875 \r\nQ 50.828125 45.953125 50.828125 35.296875 \r\nQ 50.828125 22.703125 48.234375 14.96875 \r\nQ 45.65625 7.234375 40.5 3 \r\nQ 35.359375 -1.21875 27.484375 -1.21875 \r\nQ 17.140625 -1.21875 11.234375 6.203125 \r\nQ 4.15625 15.140625 4.15625 35.296875 \r\nz\r\nM 13.1875 35.296875 \r\nQ 13.1875 17.671875 17.3125 11.828125 \r\nQ 21.4375 6 27.484375 6 \r\nQ 33.546875 6 37.671875 11.859375 \r\nQ 41.796875 17.71875 41.796875 35.296875 \r\nQ 41.796875 52.984375 37.671875 58.78125 \r\nQ 33.546875 64.59375 27.390625 64.59375 \r\nQ 21.34375 64.59375 17.71875 59.46875 \r\nQ 13.1875 52.9375 13.1875 35.296875 \r\nz\r\n\" id=\"ArialMT-48\"/>\r\n        <path d=\"M 9.078125 0 \r\nL 9.078125 10.015625 \r\nL 19.09375 10.015625 \r\nL 19.09375 0 \r\nz\r\n\" id=\"ArialMT-46\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_2\">\r\n     <g id=\"line2d_10\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 53.368281 146.12597 \r\nL 408.276406 146.12597 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_2\">\r\n      <!-- 0.2 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(28.578281 150.062767)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 50.34375 8.453125 \r\nL 50.34375 0 \r\nL 3.03125 0 \r\nQ 2.9375 3.171875 4.046875 6.109375 \r\nQ 5.859375 10.9375 9.828125 15.625 \r\nQ 13.8125 20.3125 21.34375 26.46875 \r\nQ 33.015625 36.03125 37.109375 41.625 \r\nQ 41.21875 47.21875 41.21875 52.203125 \r\nQ 41.21875 57.421875 37.46875 61 \r\nQ 33.734375 64.59375 27.734375 64.59375 \r\nQ 21.390625 64.59375 17.578125 60.78125 \r\nQ 13.765625 56.984375 13.71875 50.25 \r\nL 4.6875 51.171875 \r\nQ 5.609375 61.28125 11.65625 66.578125 \r\nQ 17.71875 71.875 27.9375 71.875 \r\nQ 38.234375 71.875 44.234375 66.15625 \r\nQ 50.25 60.453125 50.25 52 \r\nQ 50.25 47.703125 48.484375 43.546875 \r\nQ 46.734375 39.40625 42.65625 34.8125 \r\nQ 38.578125 30.21875 29.109375 22.21875 \r\nQ 21.1875 15.578125 18.9375 13.203125 \r\nQ 16.703125 10.84375 15.234375 8.453125 \r\nz\r\n\" id=\"ArialMT-50\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-50\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_3\">\r\n     <g id=\"line2d_11\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 53.368281 113.437494 \r\nL 408.276406 113.437494 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_3\">\r\n      <!-- 0.4 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(28.578281 117.374291)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 32.328125 0 \r\nL 32.328125 17.140625 \r\nL 1.265625 17.140625 \r\nL 1.265625 25.203125 \r\nL 33.9375 71.578125 \r\nL 41.109375 71.578125 \r\nL 41.109375 25.203125 \r\nL 50.78125 25.203125 \r\nL 50.78125 17.140625 \r\nL 41.109375 17.140625 \r\nL 41.109375 0 \r\nz\r\nM 32.328125 25.203125 \r\nL 32.328125 57.46875 \r\nL 9.90625 25.203125 \r\nz\r\n\" id=\"ArialMT-52\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-52\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_4\">\r\n     <g id=\"line2d_12\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 53.368281 80.749018 \r\nL 408.276406 80.749018 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_4\">\r\n      <!-- 0.6 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(28.578281 84.685815)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 49.75 54.046875 \r\nL 41.015625 53.375 \r\nQ 39.84375 58.546875 37.703125 60.890625 \r\nQ 34.125 64.65625 28.90625 64.65625 \r\nQ 24.703125 64.65625 21.53125 62.3125 \r\nQ 17.390625 59.28125 14.984375 53.46875 \r\nQ 12.59375 47.65625 12.5 36.921875 \r\nQ 15.671875 41.75 20.265625 44.09375 \r\nQ 24.859375 46.4375 29.890625 46.4375 \r\nQ 38.671875 46.4375 44.84375 39.96875 \r\nQ 51.03125 33.5 51.03125 23.25 \r\nQ 51.03125 16.5 48.125 10.71875 \r\nQ 45.21875 4.9375 40.140625 1.859375 \r\nQ 35.0625 -1.21875 28.609375 -1.21875 \r\nQ 17.625 -1.21875 10.6875 6.859375 \r\nQ 3.765625 14.9375 3.765625 33.5 \r\nQ 3.765625 54.25 11.421875 63.671875 \r\nQ 18.109375 71.875 29.4375 71.875 \r\nQ 37.890625 71.875 43.28125 67.140625 \r\nQ 48.6875 62.40625 49.75 54.046875 \r\nz\r\nM 13.875 23.1875 \r\nQ 13.875 18.65625 15.796875 14.5 \r\nQ 17.71875 10.359375 21.1875 8.171875 \r\nQ 24.65625 6 28.46875 6 \r\nQ 34.03125 6 38.03125 10.484375 \r\nQ 42.046875 14.984375 42.046875 22.703125 \r\nQ 42.046875 30.125 38.078125 34.390625 \r\nQ 34.125 38.671875 28.125 38.671875 \r\nQ 22.171875 38.671875 18.015625 34.390625 \r\nQ 13.875 30.125 13.875 23.1875 \r\nz\r\n\" id=\"ArialMT-54\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-54\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_5\">\r\n     <g id=\"line2d_13\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 53.368281 48.060542 \r\nL 408.276406 48.060542 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_5\">\r\n      <!-- 0.8 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(28.578281 51.997338)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 17.671875 38.8125 \r\nQ 12.203125 40.828125 9.5625 44.53125 \r\nQ 6.9375 48.25 6.9375 53.421875 \r\nQ 6.9375 61.234375 12.546875 66.546875 \r\nQ 18.171875 71.875 27.484375 71.875 \r\nQ 36.859375 71.875 42.578125 66.421875 \r\nQ 48.296875 60.984375 48.296875 53.171875 \r\nQ 48.296875 48.1875 45.671875 44.5 \r\nQ 43.0625 40.828125 37.75 38.8125 \r\nQ 44.34375 36.671875 47.78125 31.875 \r\nQ 51.21875 27.09375 51.21875 20.453125 \r\nQ 51.21875 11.28125 44.71875 5.03125 \r\nQ 38.234375 -1.21875 27.640625 -1.21875 \r\nQ 17.046875 -1.21875 10.546875 5.046875 \r\nQ 4.046875 11.328125 4.046875 20.703125 \r\nQ 4.046875 27.6875 7.59375 32.390625 \r\nQ 11.140625 37.109375 17.671875 38.8125 \r\nz\r\nM 15.921875 53.71875 \r\nQ 15.921875 48.640625 19.1875 45.40625 \r\nQ 22.46875 42.1875 27.6875 42.1875 \r\nQ 32.765625 42.1875 36.015625 45.375 \r\nQ 39.265625 48.578125 39.265625 53.21875 \r\nQ 39.265625 58.0625 35.90625 61.359375 \r\nQ 32.5625 64.65625 27.59375 64.65625 \r\nQ 22.5625 64.65625 19.234375 61.421875 \r\nQ 15.921875 58.203125 15.921875 53.71875 \r\nz\r\nM 13.09375 20.65625 \r\nQ 13.09375 16.890625 14.875 13.375 \r\nQ 16.65625 9.859375 20.171875 7.921875 \r\nQ 23.6875 6 27.734375 6 \r\nQ 34.03125 6 38.125 10.046875 \r\nQ 42.234375 14.109375 42.234375 20.359375 \r\nQ 42.234375 26.703125 38.015625 30.859375 \r\nQ 33.796875 35.015625 27.4375 35.015625 \r\nQ 21.234375 35.015625 17.15625 30.90625 \r\nQ 13.09375 26.8125 13.09375 20.65625 \r\nz\r\n\" id=\"ArialMT-56\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-56\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_6\">\r\n     <g id=\"line2d_14\">\r\n      <path clip-path=\"url(#pace6892db0)\" d=\"M 53.368281 15.372066 \r\nL 408.276406 15.372066 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_6\">\r\n      <!-- 1.0 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(28.578281 19.308862)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 37.25 0 \r\nL 28.46875 0 \r\nL 28.46875 56 \r\nQ 25.296875 52.984375 20.140625 49.953125 \r\nQ 14.984375 46.921875 10.890625 45.40625 \r\nL 10.890625 53.90625 \r\nQ 18.265625 57.375 23.78125 62.296875 \r\nQ 29.296875 67.234375 31.59375 71.875 \r\nL 37.25 71.875 \r\nz\r\n\" id=\"ArialMT-49\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-49\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"text_7\">\r\n     <!-- PCA explained variance ratio -->\r\n     <g style=\"fill:#262626;\" transform=\"translate(22.193281 174.135156)rotate(-90)scale(0.12 -0.12)\">\r\n      <defs>\r\n       <path d=\"M 7.71875 0 \r\nL 7.71875 71.578125 \r\nL 34.71875 71.578125 \r\nQ 41.84375 71.578125 45.609375 70.90625 \r\nQ 50.875 70.015625 54.4375 67.546875 \r\nQ 58.015625 65.09375 60.1875 60.640625 \r\nQ 62.359375 56.203125 62.359375 50.875 \r\nQ 62.359375 41.75 56.546875 35.421875 \r\nQ 50.734375 29.109375 35.546875 29.109375 \r\nL 17.1875 29.109375 \r\nL 17.1875 0 \r\nz\r\nM 17.1875 37.546875 \r\nL 35.6875 37.546875 \r\nQ 44.875 37.546875 48.734375 40.96875 \r\nQ 52.59375 44.390625 52.59375 50.59375 \r\nQ 52.59375 55.078125 50.3125 58.265625 \r\nQ 48.046875 61.46875 44.34375 62.5 \r\nQ 41.9375 63.140625 35.5 63.140625 \r\nL 17.1875 63.140625 \r\nz\r\n\" id=\"ArialMT-80\"/>\r\n       <path d=\"M 58.796875 25.09375 \r\nL 68.265625 22.703125 \r\nQ 65.28125 11.03125 57.546875 4.90625 \r\nQ 49.8125 -1.21875 38.625 -1.21875 \r\nQ 27.046875 -1.21875 19.796875 3.484375 \r\nQ 12.546875 8.203125 8.765625 17.140625 \r\nQ 4.984375 26.078125 4.984375 36.328125 \r\nQ 4.984375 47.515625 9.25 55.828125 \r\nQ 13.53125 64.15625 21.40625 68.46875 \r\nQ 29.296875 72.796875 38.765625 72.796875 \r\nQ 49.515625 72.796875 56.828125 67.328125 \r\nQ 64.15625 61.859375 67.046875 51.953125 \r\nL 57.71875 49.75 \r\nQ 55.21875 57.5625 50.484375 61.125 \r\nQ 45.75 64.703125 38.578125 64.703125 \r\nQ 30.328125 64.703125 24.78125 60.734375 \r\nQ 19.234375 56.78125 16.984375 50.109375 \r\nQ 14.75 43.453125 14.75 36.375 \r\nQ 14.75 27.25 17.40625 20.4375 \r\nQ 20.0625 13.625 25.671875 10.25 \r\nQ 31.296875 6.890625 37.84375 6.890625 \r\nQ 45.796875 6.890625 51.3125 11.46875 \r\nQ 56.84375 16.0625 58.796875 25.09375 \r\nz\r\n\" id=\"ArialMT-67\"/>\r\n       <path d=\"M -0.140625 0 \r\nL 27.34375 71.578125 \r\nL 37.546875 71.578125 \r\nL 66.84375 0 \r\nL 56.0625 0 \r\nL 47.703125 21.6875 \r\nL 17.78125 21.6875 \r\nL 9.90625 0 \r\nz\r\nM 20.515625 29.390625 \r\nL 44.78125 29.390625 \r\nL 37.3125 49.21875 \r\nQ 33.890625 58.25 32.234375 64.0625 \r\nQ 30.859375 57.171875 28.375 50.390625 \r\nz\r\n\" id=\"ArialMT-65\"/>\r\n       <path id=\"ArialMT-32\"/>\r\n       <path d=\"M 42.09375 16.703125 \r\nL 51.171875 15.578125 \r\nQ 49.03125 7.625 43.21875 3.21875 \r\nQ 37.40625 -1.171875 28.375 -1.171875 \r\nQ 17 -1.171875 10.328125 5.828125 \r\nQ 3.65625 12.84375 3.65625 25.484375 \r\nQ 3.65625 38.578125 10.390625 45.796875 \r\nQ 17.140625 53.03125 27.875 53.03125 \r\nQ 38.28125 53.03125 44.875 45.953125 \r\nQ 51.46875 38.875 51.46875 26.03125 \r\nQ 51.46875 25.25 51.421875 23.6875 \r\nL 12.75 23.6875 \r\nQ 13.234375 15.140625 17.578125 10.59375 \r\nQ 21.921875 6.0625 28.421875 6.0625 \r\nQ 33.25 6.0625 36.671875 8.59375 \r\nQ 40.09375 11.140625 42.09375 16.703125 \r\nz\r\nM 13.234375 30.90625 \r\nL 42.1875 30.90625 \r\nQ 41.609375 37.453125 38.875 40.71875 \r\nQ 34.671875 45.796875 27.984375 45.796875 \r\nQ 21.921875 45.796875 17.796875 41.75 \r\nQ 13.671875 37.703125 13.234375 30.90625 \r\nz\r\n\" id=\"ArialMT-101\"/>\r\n       <path d=\"M 0.734375 0 \r\nL 19.671875 26.953125 \r\nL 2.15625 51.859375 \r\nL 13.140625 51.859375 \r\nL 21.09375 39.703125 \r\nQ 23.34375 36.234375 24.703125 33.890625 \r\nQ 26.859375 37.109375 28.65625 39.59375 \r\nL 37.40625 51.859375 \r\nL 47.90625 51.859375 \r\nL 29.984375 27.4375 \r\nL 49.265625 0 \r\nL 38.484375 0 \r\nL 27.828125 16.109375 \r\nL 25 20.453125 \r\nL 11.375 0 \r\nz\r\n\" id=\"ArialMT-120\"/>\r\n       <path d=\"M 6.59375 -19.875 \r\nL 6.59375 51.859375 \r\nL 14.59375 51.859375 \r\nL 14.59375 45.125 \r\nQ 17.4375 49.078125 21 51.046875 \r\nQ 24.5625 53.03125 29.640625 53.03125 \r\nQ 36.28125 53.03125 41.359375 49.609375 \r\nQ 46.4375 46.1875 49.015625 39.953125 \r\nQ 51.609375 33.734375 51.609375 26.3125 \r\nQ 51.609375 18.359375 48.75 11.984375 \r\nQ 45.90625 5.609375 40.453125 2.21875 \r\nQ 35.015625 -1.171875 29 -1.171875 \r\nQ 24.609375 -1.171875 21.109375 0.6875 \r\nQ 17.625 2.546875 15.375 5.375 \r\nL 15.375 -19.875 \r\nz\r\nM 14.546875 25.640625 \r\nQ 14.546875 15.625 18.59375 10.84375 \r\nQ 22.65625 6.0625 28.421875 6.0625 \r\nQ 34.28125 6.0625 38.453125 11.015625 \r\nQ 42.625 15.96875 42.625 26.375 \r\nQ 42.625 36.28125 38.546875 41.203125 \r\nQ 34.46875 46.140625 28.8125 46.140625 \r\nQ 23.1875 46.140625 18.859375 40.890625 \r\nQ 14.546875 35.640625 14.546875 25.640625 \r\nz\r\n\" id=\"ArialMT-112\"/>\r\n       <path d=\"M 6.390625 0 \r\nL 6.390625 71.578125 \r\nL 15.1875 71.578125 \r\nL 15.1875 0 \r\nz\r\n\" id=\"ArialMT-108\"/>\r\n       <path d=\"M 40.4375 6.390625 \r\nQ 35.546875 2.25 31.03125 0.53125 \r\nQ 26.515625 -1.171875 21.34375 -1.171875 \r\nQ 12.796875 -1.171875 8.203125 3 \r\nQ 3.609375 7.171875 3.609375 13.671875 \r\nQ 3.609375 17.484375 5.34375 20.625 \r\nQ 7.078125 23.78125 9.890625 25.6875 \r\nQ 12.703125 27.59375 16.21875 28.5625 \r\nQ 18.796875 29.25 24.03125 29.890625 \r\nQ 34.671875 31.15625 39.703125 32.90625 \r\nQ 39.75 34.71875 39.75 35.203125 \r\nQ 39.75 40.578125 37.25 42.78125 \r\nQ 33.890625 45.75 27.25 45.75 \r\nQ 21.046875 45.75 18.09375 43.578125 \r\nQ 15.140625 41.40625 13.71875 35.890625 \r\nL 5.125 37.0625 \r\nQ 6.296875 42.578125 8.984375 45.96875 \r\nQ 11.671875 49.359375 16.75 51.1875 \r\nQ 21.828125 53.03125 28.515625 53.03125 \r\nQ 35.15625 53.03125 39.296875 51.46875 \r\nQ 43.453125 49.90625 45.40625 47.53125 \r\nQ 47.359375 45.171875 48.140625 41.546875 \r\nQ 48.578125 39.3125 48.578125 33.453125 \r\nL 48.578125 21.734375 \r\nQ 48.578125 9.46875 49.140625 6.21875 \r\nQ 49.703125 2.984375 51.375 0 \r\nL 42.1875 0 \r\nQ 40.828125 2.734375 40.4375 6.390625 \r\nz\r\nM 39.703125 26.03125 \r\nQ 34.90625 24.078125 25.34375 22.703125 \r\nQ 19.921875 21.921875 17.671875 20.9375 \r\nQ 15.4375 19.96875 14.203125 18.09375 \r\nQ 12.984375 16.21875 12.984375 13.921875 \r\nQ 12.984375 10.40625 15.640625 8.0625 \r\nQ 18.3125 5.71875 23.4375 5.71875 \r\nQ 28.515625 5.71875 32.46875 7.9375 \r\nQ 36.421875 10.15625 38.28125 14.015625 \r\nQ 39.703125 17 39.703125 22.796875 \r\nz\r\n\" id=\"ArialMT-97\"/>\r\n       <path d=\"M 6.640625 61.46875 \r\nL 6.640625 71.578125 \r\nL 15.4375 71.578125 \r\nL 15.4375 61.46875 \r\nz\r\nM 6.640625 0 \r\nL 6.640625 51.859375 \r\nL 15.4375 51.859375 \r\nL 15.4375 0 \r\nz\r\n\" id=\"ArialMT-105\"/>\r\n       <path d=\"M 6.59375 0 \r\nL 6.59375 51.859375 \r\nL 14.5 51.859375 \r\nL 14.5 44.484375 \r\nQ 20.21875 53.03125 31 53.03125 \r\nQ 35.6875 53.03125 39.625 51.34375 \r\nQ 43.5625 49.65625 45.515625 46.921875 \r\nQ 47.46875 44.1875 48.25 40.4375 \r\nQ 48.734375 37.984375 48.734375 31.890625 \r\nL 48.734375 0 \r\nL 39.9375 0 \r\nL 39.9375 31.546875 \r\nQ 39.9375 36.921875 38.90625 39.578125 \r\nQ 37.890625 42.234375 35.28125 43.8125 \r\nQ 32.671875 45.40625 29.15625 45.40625 \r\nQ 23.53125 45.40625 19.453125 41.84375 \r\nQ 15.375 38.28125 15.375 28.328125 \r\nL 15.375 0 \r\nz\r\n\" id=\"ArialMT-110\"/>\r\n       <path d=\"M 40.234375 0 \r\nL 40.234375 6.546875 \r\nQ 35.296875 -1.171875 25.734375 -1.171875 \r\nQ 19.53125 -1.171875 14.328125 2.25 \r\nQ 9.125 5.671875 6.265625 11.796875 \r\nQ 3.421875 17.921875 3.421875 25.875 \r\nQ 3.421875 33.640625 6 39.96875 \r\nQ 8.59375 46.296875 13.765625 49.65625 \r\nQ 18.953125 53.03125 25.34375 53.03125 \r\nQ 30.03125 53.03125 33.6875 51.046875 \r\nQ 37.359375 49.078125 39.65625 45.90625 \r\nL 39.65625 71.578125 \r\nL 48.390625 71.578125 \r\nL 48.390625 0 \r\nz\r\nM 12.453125 25.875 \r\nQ 12.453125 15.921875 16.640625 10.984375 \r\nQ 20.84375 6.0625 26.5625 6.0625 \r\nQ 32.328125 6.0625 36.34375 10.765625 \r\nQ 40.375 15.484375 40.375 25.140625 \r\nQ 40.375 35.796875 36.265625 40.765625 \r\nQ 32.171875 45.75 26.171875 45.75 \r\nQ 20.3125 45.75 16.375 40.96875 \r\nQ 12.453125 36.1875 12.453125 25.875 \r\nz\r\n\" id=\"ArialMT-100\"/>\r\n       <path d=\"M 21 0 \r\nL 1.265625 51.859375 \r\nL 10.546875 51.859375 \r\nL 21.6875 20.796875 \r\nQ 23.484375 15.765625 25 10.359375 \r\nQ 26.171875 14.453125 28.265625 20.21875 \r\nL 39.796875 51.859375 \r\nL 48.828125 51.859375 \r\nL 29.203125 0 \r\nz\r\n\" id=\"ArialMT-118\"/>\r\n       <path d=\"M 6.5 0 \r\nL 6.5 51.859375 \r\nL 14.40625 51.859375 \r\nL 14.40625 44 \r\nQ 17.4375 49.515625 20 51.265625 \r\nQ 22.5625 53.03125 25.640625 53.03125 \r\nQ 30.078125 53.03125 34.671875 50.203125 \r\nL 31.640625 42.046875 \r\nQ 28.421875 43.953125 25.203125 43.953125 \r\nQ 22.3125 43.953125 20.015625 42.21875 \r\nQ 17.71875 40.484375 16.75 37.40625 \r\nQ 15.28125 32.71875 15.28125 27.15625 \r\nL 15.28125 0 \r\nz\r\n\" id=\"ArialMT-114\"/>\r\n       <path d=\"M 40.4375 19 \r\nL 49.078125 17.875 \r\nQ 47.65625 8.9375 41.8125 3.875 \r\nQ 35.984375 -1.171875 27.484375 -1.171875 \r\nQ 16.84375 -1.171875 10.375 5.78125 \r\nQ 3.90625 12.75 3.90625 25.734375 \r\nQ 3.90625 34.125 6.6875 40.421875 \r\nQ 9.46875 46.734375 15.15625 49.875 \r\nQ 20.84375 53.03125 27.546875 53.03125 \r\nQ 35.984375 53.03125 41.359375 48.75 \r\nQ 46.734375 44.484375 48.25 36.625 \r\nL 39.703125 35.296875 \r\nQ 38.484375 40.53125 35.375 43.15625 \r\nQ 32.28125 45.796875 27.875 45.796875 \r\nQ 21.234375 45.796875 17.078125 41.03125 \r\nQ 12.9375 36.28125 12.9375 25.984375 \r\nQ 12.9375 15.53125 16.9375 10.796875 \r\nQ 20.953125 6.0625 27.390625 6.0625 \r\nQ 32.5625 6.0625 36.03125 9.234375 \r\nQ 39.5 12.40625 40.4375 19 \r\nz\r\n\" id=\"ArialMT-99\"/>\r\n       <path d=\"M 25.78125 7.859375 \r\nL 27.046875 0.09375 \r\nQ 23.34375 -0.6875 20.40625 -0.6875 \r\nQ 15.625 -0.6875 12.984375 0.828125 \r\nQ 10.359375 2.34375 9.28125 4.8125 \r\nQ 8.203125 7.28125 8.203125 15.1875 \r\nL 8.203125 45.015625 \r\nL 1.765625 45.015625 \r\nL 1.765625 51.859375 \r\nL 8.203125 51.859375 \r\nL 8.203125 64.703125 \r\nL 16.9375 69.96875 \r\nL 16.9375 51.859375 \r\nL 25.78125 51.859375 \r\nL 25.78125 45.015625 \r\nL 16.9375 45.015625 \r\nL 16.9375 14.703125 \r\nQ 16.9375 10.9375 17.40625 9.859375 \r\nQ 17.875 8.796875 18.921875 8.15625 \r\nQ 19.96875 7.515625 21.921875 7.515625 \r\nQ 23.390625 7.515625 25.78125 7.859375 \r\nz\r\n\" id=\"ArialMT-116\"/>\r\n       <path d=\"M 3.328125 25.921875 \r\nQ 3.328125 40.328125 11.328125 47.265625 \r\nQ 18.015625 53.03125 27.640625 53.03125 \r\nQ 38.328125 53.03125 45.109375 46.015625 \r\nQ 51.90625 39.015625 51.90625 26.65625 \r\nQ 51.90625 16.65625 48.90625 10.90625 \r\nQ 45.90625 5.171875 40.15625 2 \r\nQ 34.421875 -1.171875 27.640625 -1.171875 \r\nQ 16.75 -1.171875 10.03125 5.8125 \r\nQ 3.328125 12.796875 3.328125 25.921875 \r\nz\r\nM 12.359375 25.921875 \r\nQ 12.359375 15.96875 16.703125 11.015625 \r\nQ 21.046875 6.0625 27.640625 6.0625 \r\nQ 34.1875 6.0625 38.53125 11.03125 \r\nQ 42.875 16.015625 42.875 26.21875 \r\nQ 42.875 35.84375 38.5 40.796875 \r\nQ 34.125 45.75 27.640625 45.75 \r\nQ 21.046875 45.75 16.703125 40.8125 \r\nQ 12.359375 35.890625 12.359375 25.921875 \r\nz\r\n\" id=\"ArialMT-111\"/>\r\n      </defs>\r\n      <use xlink:href=\"#ArialMT-80\"/>\r\n      <use x=\"66.699219\" xlink:href=\"#ArialMT-67\"/>\r\n      <use x=\"138.916016\" xlink:href=\"#ArialMT-65\"/>\r\n      <use x=\"200.115234\" xlink:href=\"#ArialMT-32\"/>\r\n      <use x=\"227.898438\" xlink:href=\"#ArialMT-101\"/>\r\n      <use x=\"283.513672\" xlink:href=\"#ArialMT-120\"/>\r\n      <use x=\"333.513672\" xlink:href=\"#ArialMT-112\"/>\r\n      <use x=\"389.128906\" xlink:href=\"#ArialMT-108\"/>\r\n      <use x=\"411.345703\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"466.960938\" xlink:href=\"#ArialMT-105\"/>\r\n      <use x=\"489.177734\" xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"544.792969\" xlink:href=\"#ArialMT-101\"/>\r\n      <use x=\"600.408203\" xlink:href=\"#ArialMT-100\"/>\r\n      <use x=\"656.023438\" xlink:href=\"#ArialMT-32\"/>\r\n      <use x=\"683.806641\" xlink:href=\"#ArialMT-118\"/>\r\n      <use x=\"733.806641\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"789.421875\" xlink:href=\"#ArialMT-114\"/>\r\n      <use x=\"822.722656\" xlink:href=\"#ArialMT-105\"/>\r\n      <use x=\"844.939453\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"900.554688\" xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"956.169922\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"1006.169922\" xlink:href=\"#ArialMT-101\"/>\r\n      <use x=\"1061.785156\" xlink:href=\"#ArialMT-32\"/>\r\n      <use x=\"1089.568359\" xlink:href=\"#ArialMT-114\"/>\r\n      <use x=\"1122.869141\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"1178.484375\" xlink:href=\"#ArialMT-116\"/>\r\n      <use x=\"1206.267578\" xlink:href=\"#ArialMT-105\"/>\r\n      <use x=\"1228.484375\" xlink:href=\"#ArialMT-111\"/>\r\n     </g>\r\n    </g>\r\n   </g>\r\n   <g id=\"line2d_15\">\r\n    <defs>\r\n     <path d=\"M -3 0 \r\nL 3 0 \r\nM 0 3 \r\nL 0 -3 \r\n\" id=\"mdf5c812789\" style=\"stroke:#4c72b0;\"/>\r\n    </defs>\r\n    <g clip-path=\"url(#pace6892db0)\">\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"63.365693\" xlink:href=\"#mdf5c812789\" y=\"15.372116\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"68.364399\" xlink:href=\"#mdf5c812789\" y=\"178.814407\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"73.363105\" xlink:href=\"#mdf5c812789\" y=\"178.814436\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"78.361811\" xlink:href=\"#mdf5c812789\" y=\"178.814444\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"83.360517\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"88.359223\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"93.357929\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"98.356635\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"103.355341\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"108.354047\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"113.352753\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"118.351459\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"123.350165\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"128.348871\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"133.347577\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"138.346283\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"143.344989\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"148.343695\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"153.342401\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"158.341107\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"163.339813\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"168.338519\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"173.337225\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"178.335931\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"183.334637\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"188.333343\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"193.332049\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"198.330755\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"203.329461\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"208.328167\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"213.326873\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"218.325579\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"223.324285\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"228.322991\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"233.321697\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"238.320403\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"243.319109\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"248.317815\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"253.316521\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"258.315227\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"263.313933\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"268.312639\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"273.311345\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"278.310051\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"283.308757\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"288.307463\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"293.306169\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"298.304875\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"303.303581\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"308.302287\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"313.300993\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"318.299699\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"323.298404\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"328.29711\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"333.295816\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"338.294522\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"343.293228\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"348.291934\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"353.29064\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"358.289346\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"363.288052\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"368.286758\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"373.285464\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"378.28417\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"383.282876\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"388.281582\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"393.280288\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"398.278994\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"403.2777\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"408.276406\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n     <use style=\"fill:#4c72b0;stroke:#4c72b0;\" x=\"413.275112\" xlink:href=\"#mdf5c812789\" y=\"178.814446\"/>\r\n    </g>\r\n   </g>\r\n   <g id=\"line2d_16\">\r\n    <path clip-path=\"url(#pace6892db0)\" d=\"M 208.328167 186.986562 \r\nL 208.328167 7.2 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-dasharray:1.5,2.475;stroke-dashoffset:0;stroke-width:1.5;\"/>\r\n   </g>\r\n   <g id=\"patch_3\">\r\n    <path d=\"M 53.368281 186.986562 \r\nL 53.368281 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n   <g id=\"patch_4\">\r\n    <path d=\"M 408.276406 186.986562 \r\nL 408.276406 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n   <g id=\"patch_5\">\r\n    <path d=\"M 53.368281 186.986562 \r\nL 408.276406 186.986562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n   <g id=\"patch_6\">\r\n    <path d=\"M 53.368281 7.2 \r\nL 408.276406 7.2 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n   <g id=\"legend_1\">\r\n    <g id=\"patch_7\">\r\n     <path d=\"M 240.735781 33.774375 \r\nL 399.876406 33.774375 \r\nQ 402.276406 33.774375 402.276406 31.374375 \r\nL 402.276406 15.6 \r\nQ 402.276406 13.2 399.876406 13.2 \r\nL 240.735781 13.2 \r\nQ 238.335781 13.2 238.335781 15.6 \r\nL 238.335781 31.374375 \r\nQ 238.335781 33.774375 240.735781 33.774375 \r\nz\r\n\" style=\"fill:#ffffff;opacity:0.8;stroke:#cccccc;stroke-linejoin:miter;\"/>\r\n    </g>\r\n    <g id=\"line2d_17\">\r\n     <path d=\"M 243.135781 22.389375 \r\nL 267.135781 22.389375 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-dasharray:1.5,2.475;stroke-dashoffset:0;stroke-width:1.5;\"/>\r\n    </g>\r\n    <g id=\"line2d_18\"/>\r\n    <g id=\"text_8\">\r\n     <!-- n_components chosen -->\r\n     <g style=\"fill:#262626;\" transform=\"translate(276.735781 26.589375)scale(0.12 -0.12)\">\r\n      <defs>\r\n       <path d=\"M -1.515625 -19.875 \r\nL -1.515625 -13.53125 \r\nL 56.734375 -13.53125 \r\nL 56.734375 -19.875 \r\nz\r\n\" id=\"ArialMT-95\"/>\r\n       <path d=\"M 6.59375 0 \r\nL 6.59375 51.859375 \r\nL 14.453125 51.859375 \r\nL 14.453125 44.578125 \r\nQ 16.890625 48.390625 20.9375 50.703125 \r\nQ 25 53.03125 30.171875 53.03125 \r\nQ 35.9375 53.03125 39.625 50.640625 \r\nQ 43.3125 48.25 44.828125 43.953125 \r\nQ 50.984375 53.03125 60.84375 53.03125 \r\nQ 68.5625 53.03125 72.703125 48.75 \r\nQ 76.859375 44.484375 76.859375 35.59375 \r\nL 76.859375 0 \r\nL 68.109375 0 \r\nL 68.109375 32.671875 \r\nQ 68.109375 37.9375 67.25 40.25 \r\nQ 66.40625 42.578125 64.15625 43.984375 \r\nQ 61.921875 45.40625 58.890625 45.40625 \r\nQ 53.421875 45.40625 49.796875 41.765625 \r\nQ 46.1875 38.140625 46.1875 30.125 \r\nL 46.1875 0 \r\nL 37.40625 0 \r\nL 37.40625 33.6875 \r\nQ 37.40625 39.546875 35.25 42.46875 \r\nQ 33.109375 45.40625 28.21875 45.40625 \r\nQ 24.515625 45.40625 21.359375 43.453125 \r\nQ 18.21875 41.5 16.796875 37.734375 \r\nQ 15.375 33.984375 15.375 26.90625 \r\nL 15.375 0 \r\nz\r\n\" id=\"ArialMT-109\"/>\r\n       <path d=\"M 3.078125 15.484375 \r\nL 11.765625 16.84375 \r\nQ 12.5 11.625 15.84375 8.84375 \r\nQ 19.1875 6.0625 25.203125 6.0625 \r\nQ 31.25 6.0625 34.171875 8.515625 \r\nQ 37.109375 10.984375 37.109375 14.3125 \r\nQ 37.109375 17.28125 34.515625 19 \r\nQ 32.71875 20.171875 25.53125 21.96875 \r\nQ 15.875 24.421875 12.140625 26.203125 \r\nQ 8.40625 27.984375 6.46875 31.125 \r\nQ 4.546875 34.28125 4.546875 38.09375 \r\nQ 4.546875 41.546875 6.125 44.5 \r\nQ 7.71875 47.46875 10.453125 49.421875 \r\nQ 12.5 50.921875 16.03125 51.96875 \r\nQ 19.578125 53.03125 23.640625 53.03125 \r\nQ 29.734375 53.03125 34.34375 51.265625 \r\nQ 38.96875 49.515625 41.15625 46.5 \r\nQ 43.359375 43.5 44.1875 38.484375 \r\nL 35.59375 37.3125 \r\nQ 35.015625 41.3125 32.203125 43.546875 \r\nQ 29.390625 45.796875 24.265625 45.796875 \r\nQ 18.21875 45.796875 15.625 43.796875 \r\nQ 13.03125 41.796875 13.03125 39.109375 \r\nQ 13.03125 37.40625 14.109375 36.03125 \r\nQ 15.1875 34.625 17.484375 33.6875 \r\nQ 18.796875 33.203125 25.25 31.453125 \r\nQ 34.578125 28.953125 38.25 27.359375 \r\nQ 41.9375 25.78125 44.03125 22.75 \r\nQ 46.140625 19.734375 46.140625 15.234375 \r\nQ 46.140625 10.84375 43.578125 6.953125 \r\nQ 41.015625 3.078125 36.171875 0.953125 \r\nQ 31.34375 -1.171875 25.25 -1.171875 \r\nQ 15.140625 -1.171875 9.84375 3.03125 \r\nQ 4.546875 7.234375 3.078125 15.484375 \r\nz\r\n\" id=\"ArialMT-115\"/>\r\n       <path d=\"M 6.59375 0 \r\nL 6.59375 71.578125 \r\nL 15.375 71.578125 \r\nL 15.375 45.90625 \r\nQ 21.53125 53.03125 30.90625 53.03125 \r\nQ 36.671875 53.03125 40.921875 50.75 \r\nQ 45.171875 48.484375 47 44.484375 \r\nQ 48.828125 40.484375 48.828125 32.859375 \r\nL 48.828125 0 \r\nL 40.046875 0 \r\nL 40.046875 32.859375 \r\nQ 40.046875 39.453125 37.1875 42.453125 \r\nQ 34.328125 45.453125 29.109375 45.453125 \r\nQ 25.203125 45.453125 21.75 43.421875 \r\nQ 18.3125 41.40625 16.84375 37.9375 \r\nQ 15.375 34.46875 15.375 28.375 \r\nL 15.375 0 \r\nz\r\n\" id=\"ArialMT-104\"/>\r\n      </defs>\r\n      <use xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"55.615234\" xlink:href=\"#ArialMT-95\"/>\r\n      <use x=\"111.230469\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"161.230469\" xlink:href=\"#ArialMT-111\"/>\r\n      <use x=\"216.845703\" xlink:href=\"#ArialMT-109\"/>\r\n      <use x=\"300.146484\" xlink:href=\"#ArialMT-112\"/>\r\n      <use x=\"355.761719\" xlink:href=\"#ArialMT-111\"/>\r\n      <use x=\"411.376953\" xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"466.992188\" xlink:href=\"#ArialMT-101\"/>\r\n      <use x=\"522.607422\" xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"578.222656\" xlink:href=\"#ArialMT-116\"/>\r\n      <use x=\"606.005859\" xlink:href=\"#ArialMT-115\"/>\r\n      <use x=\"656.005859\" xlink:href=\"#ArialMT-32\"/>\r\n      <use x=\"683.789062\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"733.789062\" xlink:href=\"#ArialMT-104\"/>\r\n      <use x=\"789.404297\" xlink:href=\"#ArialMT-111\"/>\r\n      <use x=\"845.019531\" xlink:href=\"#ArialMT-115\"/>\r\n      <use x=\"895.019531\" xlink:href=\"#ArialMT-101\"/>\r\n      <use x=\"950.634766\" xlink:href=\"#ArialMT-110\"/>\r\n     </g>\r\n    </g>\r\n   </g>\r\n  </g>\r\n  <g id=\"axes_2\">\r\n   <g id=\"patch_8\">\r\n    <path d=\"M 53.368281 379.733125 \r\nL 408.276406 379.733125 \r\nL 408.276406 199.946562 \r\nL 53.368281 199.946562 \r\nz\r\n\" style=\"fill:#ffffff;\"/>\r\n   </g>\r\n   <g id=\"matplotlib.axis_3\">\r\n    <g id=\"xtick_9\">\r\n     <g id=\"line2d_19\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 58.366987 379.733125 \r\nL 58.366987 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_9\">\r\n      <!-- 0 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(55.308472 397.106719)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_10\">\r\n     <g id=\"line2d_20\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 108.354047 379.733125 \r\nL 108.354047 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_10\">\r\n      <!-- 10 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(102.237016 397.106719)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-49\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_11\">\r\n     <g id=\"line2d_21\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 158.341107 379.733125 \r\nL 158.341107 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_11\">\r\n      <!-- 20 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(152.224076 397.106719)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-50\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_12\">\r\n     <g id=\"line2d_22\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 208.328167 379.733125 \r\nL 208.328167 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_12\">\r\n      <!-- 30 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(202.211136 397.106719)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 4.203125 18.890625 \r\nL 12.984375 20.0625 \r\nQ 14.5 12.59375 18.140625 9.296875 \r\nQ 21.78125 6 27 6 \r\nQ 33.203125 6 37.46875 10.296875 \r\nQ 41.75 14.59375 41.75 20.953125 \r\nQ 41.75 27 37.796875 30.921875 \r\nQ 33.84375 34.859375 27.734375 34.859375 \r\nQ 25.25 34.859375 21.53125 33.890625 \r\nL 22.515625 41.609375 \r\nQ 23.390625 41.5 23.921875 41.5 \r\nQ 29.546875 41.5 34.03125 44.421875 \r\nQ 38.53125 47.359375 38.53125 53.46875 \r\nQ 38.53125 58.296875 35.25 61.46875 \r\nQ 31.984375 64.65625 26.8125 64.65625 \r\nQ 21.6875 64.65625 18.265625 61.421875 \r\nQ 14.84375 58.203125 13.875 51.765625 \r\nL 5.078125 53.328125 \r\nQ 6.6875 62.15625 12.390625 67.015625 \r\nQ 18.109375 71.875 26.609375 71.875 \r\nQ 32.46875 71.875 37.390625 69.359375 \r\nQ 42.328125 66.84375 44.9375 62.5 \r\nQ 47.5625 58.15625 47.5625 53.265625 \r\nQ 47.5625 48.640625 45.0625 44.828125 \r\nQ 42.578125 41.015625 37.703125 38.765625 \r\nQ 44.046875 37.3125 47.5625 32.6875 \r\nQ 51.078125 28.078125 51.078125 21.140625 \r\nQ 51.078125 11.765625 44.234375 5.25 \r\nQ 37.40625 -1.265625 26.953125 -1.265625 \r\nQ 17.53125 -1.265625 11.296875 4.34375 \r\nQ 5.078125 9.96875 4.203125 18.890625 \r\nz\r\n\" id=\"ArialMT-51\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-51\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_13\">\r\n     <g id=\"line2d_23\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 258.315227 379.733125 \r\nL 258.315227 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_13\">\r\n      <!-- 40 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(252.198195 397.106719)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-52\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_14\">\r\n     <g id=\"line2d_24\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 308.302287 379.733125 \r\nL 308.302287 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_14\">\r\n      <!-- 50 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(302.185255 397.106719)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 4.15625 18.75 \r\nL 13.375 19.53125 \r\nQ 14.40625 12.796875 18.140625 9.390625 \r\nQ 21.875 6 27.15625 6 \r\nQ 33.5 6 37.890625 10.78125 \r\nQ 42.28125 15.578125 42.28125 23.484375 \r\nQ 42.28125 31 38.0625 35.34375 \r\nQ 33.84375 39.703125 27 39.703125 \r\nQ 22.75 39.703125 19.328125 37.765625 \r\nQ 15.921875 35.84375 13.96875 32.765625 \r\nL 5.71875 33.84375 \r\nL 12.640625 70.609375 \r\nL 48.25 70.609375 \r\nL 48.25 62.203125 \r\nL 19.671875 62.203125 \r\nL 15.828125 42.96875 \r\nQ 22.265625 47.46875 29.34375 47.46875 \r\nQ 38.71875 47.46875 45.15625 40.96875 \r\nQ 51.609375 34.46875 51.609375 24.265625 \r\nQ 51.609375 14.546875 45.953125 7.46875 \r\nQ 39.0625 -1.21875 27.15625 -1.21875 \r\nQ 17.390625 -1.21875 11.203125 4.25 \r\nQ 5.03125 9.71875 4.15625 18.75 \r\nz\r\n\" id=\"ArialMT-53\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-53\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_15\">\r\n     <g id=\"line2d_25\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 358.289346 379.733125 \r\nL 358.289346 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_15\">\r\n      <!-- 60 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(352.172315 397.106719)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-54\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"xtick_16\">\r\n     <g id=\"line2d_26\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 408.276406 379.733125 \r\nL 408.276406 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_16\">\r\n      <!-- 70 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(402.159375 397.106719)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 4.734375 62.203125 \r\nL 4.734375 70.65625 \r\nL 51.078125 70.65625 \r\nL 51.078125 63.8125 \r\nQ 44.234375 56.546875 37.515625 44.484375 \r\nQ 30.8125 32.421875 27.15625 19.671875 \r\nQ 24.515625 10.6875 23.78125 0 \r\nL 14.75 0 \r\nQ 14.890625 8.453125 18.0625 20.40625 \r\nQ 21.234375 32.375 27.171875 43.484375 \r\nQ 33.109375 54.59375 39.796875 62.203125 \r\nz\r\n\" id=\"ArialMT-55\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-55\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"text_17\">\r\n     <!-- n_components -->\r\n     <g style=\"fill:#262626;\" transform=\"translate(191.465156 411.882344)scale(0.12 -0.12)\">\r\n      <use xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"55.615234\" xlink:href=\"#ArialMT-95\"/>\r\n      <use x=\"111.230469\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"161.230469\" xlink:href=\"#ArialMT-111\"/>\r\n      <use x=\"216.845703\" xlink:href=\"#ArialMT-109\"/>\r\n      <use x=\"300.146484\" xlink:href=\"#ArialMT-112\"/>\r\n      <use x=\"355.761719\" xlink:href=\"#ArialMT-111\"/>\r\n      <use x=\"411.376953\" xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"466.992188\" xlink:href=\"#ArialMT-101\"/>\r\n      <use x=\"522.607422\" xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"578.222656\" xlink:href=\"#ArialMT-116\"/>\r\n      <use x=\"606.005859\" xlink:href=\"#ArialMT-115\"/>\r\n     </g>\r\n    </g>\r\n   </g>\r\n   <g id=\"matplotlib.axis_4\">\r\n    <g id=\"ytick_7\">\r\n     <g id=\"line2d_27\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 53.368281 352.472521 \r\nL 408.276406 352.472521 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_18\">\r\n      <!-- 0.96 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(22.46125 356.409318)scale(0.11 -0.11)\">\r\n       <defs>\r\n        <path d=\"M 5.46875 16.546875 \r\nL 13.921875 17.328125 \r\nQ 14.984375 11.375 18.015625 8.6875 \r\nQ 21.046875 6 25.78125 6 \r\nQ 29.828125 6 32.875 7.859375 \r\nQ 35.9375 9.71875 37.890625 12.8125 \r\nQ 39.84375 15.921875 41.15625 21.1875 \r\nQ 42.484375 26.46875 42.484375 31.9375 \r\nQ 42.484375 32.515625 42.4375 33.6875 \r\nQ 39.796875 29.5 35.234375 26.875 \r\nQ 30.671875 24.265625 25.34375 24.265625 \r\nQ 16.453125 24.265625 10.296875 30.703125 \r\nQ 4.15625 37.15625 4.15625 47.703125 \r\nQ 4.15625 58.59375 10.578125 65.234375 \r\nQ 17 71.875 26.65625 71.875 \r\nQ 33.640625 71.875 39.421875 68.109375 \r\nQ 45.21875 64.359375 48.21875 57.390625 \r\nQ 51.21875 50.4375 51.21875 37.25 \r\nQ 51.21875 23.53125 48.234375 15.40625 \r\nQ 45.265625 7.28125 39.375 3.03125 \r\nQ 33.5 -1.21875 25.59375 -1.21875 \r\nQ 17.1875 -1.21875 11.859375 3.4375 \r\nQ 6.546875 8.109375 5.46875 16.546875 \r\nz\r\nM 41.453125 48.140625 \r\nQ 41.453125 55.71875 37.421875 60.15625 \r\nQ 33.40625 64.59375 27.734375 64.59375 \r\nQ 21.875 64.59375 17.53125 59.8125 \r\nQ 13.1875 55.03125 13.1875 47.40625 \r\nQ 13.1875 40.578125 17.3125 36.296875 \r\nQ 21.4375 32.03125 27.484375 32.03125 \r\nQ 33.59375 32.03125 37.515625 36.296875 \r\nQ 41.453125 40.578125 41.453125 48.140625 \r\nz\r\n\" id=\"ArialMT-57\"/>\r\n       </defs>\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-57\"/>\r\n       <use x=\"139.013672\" xlink:href=\"#ArialMT-54\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_8\">\r\n     <g id=\"line2d_28\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 53.368281 315.956261 \r\nL 408.276406 315.956261 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_19\">\r\n      <!-- 0.97 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(22.46125 319.893057)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-57\"/>\r\n       <use x=\"139.013672\" xlink:href=\"#ArialMT-55\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_9\">\r\n     <g id=\"line2d_29\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 53.368281 279.44 \r\nL 408.276406 279.44 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_20\">\r\n      <!-- 0.98 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(22.46125 283.376797)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-57\"/>\r\n       <use x=\"139.013672\" xlink:href=\"#ArialMT-56\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_10\">\r\n     <g id=\"line2d_30\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 53.368281 242.92374 \r\nL 408.276406 242.92374 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_21\">\r\n      <!-- 0.99 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(22.46125 246.860537)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-57\"/>\r\n       <use x=\"139.013672\" xlink:href=\"#ArialMT-57\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"ytick_11\">\r\n     <g id=\"line2d_31\">\r\n      <path clip-path=\"url(#pfb6df73cba)\" d=\"M 53.368281 206.407479 \r\nL 408.276406 206.407479 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:round;\"/>\r\n     </g>\r\n     <g id=\"text_22\">\r\n      <!-- 1.00 -->\r\n      <g style=\"fill:#262626;\" transform=\"translate(22.46125 210.344276)scale(0.11 -0.11)\">\r\n       <use xlink:href=\"#ArialMT-49\"/>\r\n       <use x=\"55.615234\" xlink:href=\"#ArialMT-46\"/>\r\n       <use x=\"83.398438\" xlink:href=\"#ArialMT-48\"/>\r\n       <use x=\"139.013672\" xlink:href=\"#ArialMT-48\"/>\r\n      </g>\r\n     </g>\r\n    </g>\r\n    <g id=\"text_23\">\r\n     <!-- Classification accuracy (val) -->\r\n     <g style=\"fill:#262626;\" transform=\"translate(15.935625 364.192031)rotate(-90)scale(0.12 -0.12)\">\r\n      <defs>\r\n       <path d=\"M 8.6875 0 \r\nL 8.6875 45.015625 \r\nL 0.921875 45.015625 \r\nL 0.921875 51.859375 \r\nL 8.6875 51.859375 \r\nL 8.6875 57.375 \r\nQ 8.6875 62.59375 9.625 65.140625 \r\nQ 10.890625 68.5625 14.078125 70.671875 \r\nQ 17.28125 72.796875 23.046875 72.796875 \r\nQ 26.765625 72.796875 31.25 71.921875 \r\nL 29.9375 64.265625 \r\nQ 27.203125 64.75 24.75 64.75 \r\nQ 20.75 64.75 19.09375 63.03125 \r\nQ 17.4375 61.328125 17.4375 56.640625 \r\nL 17.4375 51.859375 \r\nL 27.546875 51.859375 \r\nL 27.546875 45.015625 \r\nL 17.4375 45.015625 \r\nL 17.4375 0 \r\nz\r\n\" id=\"ArialMT-102\"/>\r\n       <path d=\"M 40.578125 0 \r\nL 40.578125 7.625 \r\nQ 34.515625 -1.171875 24.125 -1.171875 \r\nQ 19.53125 -1.171875 15.546875 0.578125 \r\nQ 11.578125 2.34375 9.640625 5 \r\nQ 7.71875 7.671875 6.9375 11.53125 \r\nQ 6.390625 14.109375 6.390625 19.734375 \r\nL 6.390625 51.859375 \r\nL 15.1875 51.859375 \r\nL 15.1875 23.09375 \r\nQ 15.1875 16.21875 15.71875 13.8125 \r\nQ 16.546875 10.359375 19.234375 8.375 \r\nQ 21.921875 6.390625 25.875 6.390625 \r\nQ 29.828125 6.390625 33.296875 8.421875 \r\nQ 36.765625 10.453125 38.203125 13.9375 \r\nQ 39.65625 17.4375 39.65625 24.078125 \r\nL 39.65625 51.859375 \r\nL 48.4375 51.859375 \r\nL 48.4375 0 \r\nz\r\n\" id=\"ArialMT-117\"/>\r\n       <path d=\"M 6.203125 -19.96875 \r\nL 5.21875 -11.71875 \r\nQ 8.109375 -12.5 10.25 -12.5 \r\nQ 13.1875 -12.5 14.9375 -11.515625 \r\nQ 16.703125 -10.546875 17.828125 -8.796875 \r\nQ 18.65625 -7.46875 20.515625 -2.25 \r\nQ 20.75 -1.515625 21.296875 -0.09375 \r\nL 1.609375 51.859375 \r\nL 11.078125 51.859375 \r\nL 21.875 21.828125 \r\nQ 23.96875 16.109375 25.640625 9.8125 \r\nQ 27.15625 15.875 29.25 21.625 \r\nL 40.328125 51.859375 \r\nL 49.125 51.859375 \r\nL 29.390625 -0.875 \r\nQ 26.21875 -9.421875 24.46875 -12.640625 \r\nQ 22.125 -17 19.09375 -19.015625 \r\nQ 16.0625 -21.046875 11.859375 -21.046875 \r\nQ 9.328125 -21.046875 6.203125 -19.96875 \r\nz\r\n\" id=\"ArialMT-121\"/>\r\n       <path d=\"M 23.390625 -21.046875 \r\nQ 16.109375 -11.859375 11.078125 0.4375 \r\nQ 6.0625 12.75 6.0625 25.921875 \r\nQ 6.0625 37.546875 9.8125 48.1875 \r\nQ 14.203125 60.546875 23.390625 72.796875 \r\nL 29.6875 72.796875 \r\nQ 23.78125 62.640625 21.875 58.296875 \r\nQ 18.890625 51.5625 17.1875 44.234375 \r\nQ 15.09375 35.109375 15.09375 25.875 \r\nQ 15.09375 2.390625 29.6875 -21.046875 \r\nz\r\n\" id=\"ArialMT-40\"/>\r\n       <path d=\"M 12.359375 -21.046875 \r\nL 6.0625 -21.046875 \r\nQ 20.65625 2.390625 20.65625 25.875 \r\nQ 20.65625 35.0625 18.5625 44.09375 \r\nQ 16.890625 51.421875 13.921875 58.15625 \r\nQ 12.015625 62.546875 6.0625 72.796875 \r\nL 12.359375 72.796875 \r\nQ 21.53125 60.546875 25.921875 48.1875 \r\nQ 29.6875 37.546875 29.6875 25.921875 \r\nQ 29.6875 12.75 24.625 0.4375 \r\nQ 19.578125 -11.859375 12.359375 -21.046875 \r\nz\r\n\" id=\"ArialMT-41\"/>\r\n      </defs>\r\n      <use xlink:href=\"#ArialMT-67\"/>\r\n      <use x=\"72.216797\" xlink:href=\"#ArialMT-108\"/>\r\n      <use x=\"94.433594\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"150.048828\" xlink:href=\"#ArialMT-115\"/>\r\n      <use x=\"200.048828\" xlink:href=\"#ArialMT-115\"/>\r\n      <use x=\"250.048828\" xlink:href=\"#ArialMT-105\"/>\r\n      <use x=\"272.265625\" xlink:href=\"#ArialMT-102\"/>\r\n      <use x=\"300.048828\" xlink:href=\"#ArialMT-105\"/>\r\n      <use x=\"322.265625\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"372.265625\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"427.880859\" xlink:href=\"#ArialMT-116\"/>\r\n      <use x=\"455.664062\" xlink:href=\"#ArialMT-105\"/>\r\n      <use x=\"477.880859\" xlink:href=\"#ArialMT-111\"/>\r\n      <use x=\"533.496094\" xlink:href=\"#ArialMT-110\"/>\r\n      <use x=\"589.111328\" xlink:href=\"#ArialMT-32\"/>\r\n      <use x=\"616.894531\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"672.509766\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"722.509766\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"772.509766\" xlink:href=\"#ArialMT-117\"/>\r\n      <use x=\"828.125\" xlink:href=\"#ArialMT-114\"/>\r\n      <use x=\"861.425781\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"917.041016\" xlink:href=\"#ArialMT-99\"/>\r\n      <use x=\"967.041016\" xlink:href=\"#ArialMT-121\"/>\r\n      <use x=\"1017.041016\" xlink:href=\"#ArialMT-32\"/>\r\n      <use x=\"1044.824219\" xlink:href=\"#ArialMT-40\"/>\r\n      <use x=\"1078.125\" xlink:href=\"#ArialMT-118\"/>\r\n      <use x=\"1128.125\" xlink:href=\"#ArialMT-97\"/>\r\n      <use x=\"1183.740234\" xlink:href=\"#ArialMT-108\"/>\r\n      <use x=\"1205.957031\" xlink:href=\"#ArialMT-41\"/>\r\n     </g>\r\n    </g>\r\n   </g>\r\n   <g id=\"LineCollection_1\">\r\n    <path clip-path=\"url(#pfb6df73cba)\" d=\"M 83.360517 348.85182 \r\nL 83.360517 332.305439 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-width:1.5;\"/>\r\n    <path clip-path=\"url(#pfb6df73cba)\" d=\"M 133.347577 371.561009 \r\nL 133.347577 268.178436 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-width:1.5;\"/>\r\n    <path clip-path=\"url(#pfb6df73cba)\" d=\"M 208.328167 331.342531 \r\nL 208.328167 208.118679 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-width:1.5;\"/>\r\n    <path clip-path=\"url(#pfb6df73cba)\" d=\"M 283.308757 370.226494 \r\nL 283.308757 263.380679 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-width:1.5;\"/>\r\n    <path clip-path=\"url(#pfb6df73cba)\" d=\"M 378.28417 358.544167 \r\nL 378.28417 228.467639 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-width:1.5;\"/>\r\n   </g>\r\n   <g id=\"line2d_32\">\r\n    <path clip-path=\"url(#pfb6df73cba)\" d=\"M 83.360517 340.57863 \r\nL 133.347577 319.869722 \r\nL 208.328167 269.730605 \r\nL 283.308757 316.803587 \r\nL 378.28417 293.505903 \r\n\" style=\"fill:none;stroke:#4c72b0;stroke-linecap:round;stroke-width:1.5;\"/>\r\n   </g>\r\n   <g id=\"patch_9\">\r\n    <path d=\"M 53.368281 379.733125 \r\nL 53.368281 199.946563 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n   <g id=\"patch_10\">\r\n    <path d=\"M 408.276406 379.733125 \r\nL 408.276406 199.946563 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n   <g id=\"patch_11\">\r\n    <path d=\"M 53.368281 379.733125 \r\nL 408.276406 379.733125 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n   <g id=\"patch_12\">\r\n    <path d=\"M 53.368281 199.946562 \r\nL 408.276406 199.946562 \r\n\" style=\"fill:none;stroke:#cccccc;stroke-linecap:square;stroke-linejoin:miter;stroke-width:1.25;\"/>\r\n   </g>\r\n  </g>\r\n </g>\r\n <defs>\r\n  <clipPath id=\"pace6892db0\">\r\n   <rect height=\"179.786562\" width=\"354.908125\" x=\"53.368281\" y=\"7.2\"/>\r\n  </clipPath>\r\n  <clipPath id=\"pfb6df73cba\">\r\n   <rect height=\"179.786563\" width=\"354.908125\" x=\"53.368281\" y=\"199.946562\"/>\r\n  </clipPath>\r\n </defs>\r\n</svg>\r\n",
+      "image/png": "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\n"
+     },
+     "metadata": {}
+    }
+   ],
+   "source": [
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "import pandas as pd\n",
+    "\n",
+    "from sklearn import datasets\n",
+    "from sklearn.decomposition import PCA\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn.pipeline import Pipeline\n",
+    "from sklearn.model_selection import GridSearchCV\n",
+    "\n",
+    "# Define a pipeline to search for the best combination of PCA truncation\n",
+    "# and classifier regularization.\n",
+    "pca = PCA()\n",
+    "# set the tolerance to a large value to make the example faster\n",
+    "logistic = LogisticRegression(max_iter=10000, tol=0.1)\n",
+    "pipe = Pipeline(steps=[('pca', pca), ('logistic', logistic)])\n",
+    "\n",
+    "#X_digits, y_digits = datasets.load_digits(return_X_y=True)\n",
+    "\n",
+    "# Parameters of pipelines can be set using ‘__’ separated parameter names:\n",
+    "param_grid = {\n",
+    "    'pca__n_components': [5, 15, 30, 45, 64],\n",
+    "    'logistic__C': np.logspace(-4, 4, 4),\n",
+    "}\n",
+    "search = GridSearchCV(pipe, param_grid, n_jobs=-1)\n",
+    "search.fit(X_train, y_train)\n",
+    "print(\"Best parameter (CV score=%0.3f):\" % search.best_score_)\n",
+    "print(search.best_params_)\n",
+    "\n",
+    "# Plot the PCA spectrum\n",
+    "pca.fit(X_train)\n",
+    "\n",
+    "fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, figsize=(6, 6))\n",
+    "ax0.plot(np.arange(1, pca.n_components_ + 1),\n",
+    "         pca.explained_variance_ratio_, '+', linewidth=2)\n",
+    "ax0.set_ylabel('PCA explained variance ratio')\n",
+    "\n",
+    "ax0.axvline(search.best_estimator_.named_steps['pca'].n_components,\n",
+    "            linestyle=':', label='n_components chosen')\n",
+    "ax0.legend(prop=dict(size=12))\n",
+    "\n",
+    "# For each number of components, find the best classifier results\n",
+    "results = pd.DataFrame(search.cv_results_)\n",
+    "components_col = 'param_pca__n_components'\n",
+    "best_clfs = results.groupby(components_col).apply(\n",
+    "    lambda g: g.nlargest(1, 'mean_test_score'))\n",
+    "\n",
+    "best_clfs.plot(x=components_col, y='mean_test_score', yerr='std_test_score',\n",
+    "               legend=False, ax=ax1)\n",
+    "ax1.set_ylabel('Classification accuracy (val)')\n",
+    "ax1.set_xlabel('n_components')\n",
+    "\n",
+    "plt.xlim(-1, 70)\n",
+    "\n",
+    "plt.tight_layout()\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "metadata": {},
+   "outputs": [
+    {
+     "output_type": "error",
+     "ename": "ValueError",
+     "evalue": "X has a different shape than during fitting.",
+     "traceback": [
+      "\u001b[1;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[1;31mValueError\u001b[0m                                Traceback (most recent call last)",
+      "\u001b[1;32m<ipython-input-17-370ac80b77e8>\u001b[0m in \u001b[0;36m<module>\u001b[1;34m\u001b[0m\n\u001b[0;32m     10\u001b[0m \u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0;32m     11\u001b[0m \u001b[1;31m# feature selection\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[1;32m---> 12\u001b[1;33m \u001b[0mX_train_fs\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0mX_test_fs\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0mfs\u001b[0m \u001b[1;33m=\u001b[0m \u001b[0mselect_features\u001b[0m\u001b[1;33m(\u001b[0m\u001b[0mX_train\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0my_train\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0mX_test\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0m\u001b[0;32m     13\u001b[0m \u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0;32m     14\u001b[0m \u001b[0mfeatures\u001b[0m \u001b[1;33m=\u001b[0m \u001b[0mpd\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mDataFrame\u001b[0m\u001b[1;33m(\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n",
+      "\u001b[1;32m<ipython-input-17-370ac80b77e8>\u001b[0m in \u001b[0;36mselect_features\u001b[1;34m(X_train, y_train, X_test)\u001b[0m\n\u001b[0;32m      6\u001b[0m     \u001b[0mfs\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mfit\u001b[0m\u001b[1;33m(\u001b[0m\u001b[0mX_train\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0my_train\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0;32m      7\u001b[0m     \u001b[0mX_train_fs\u001b[0m \u001b[1;33m=\u001b[0m \u001b[0mfs\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mtransform\u001b[0m\u001b[1;33m(\u001b[0m\u001b[0mX_train\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[1;32m----> 8\u001b[1;33m     \u001b[0mX_test_fs\u001b[0m \u001b[1;33m=\u001b[0m \u001b[0mfs\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mtransform\u001b[0m\u001b[1;33m(\u001b[0m\u001b[0mX_test\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0m\u001b[0;32m      9\u001b[0m     \u001b[1;32mreturn\u001b[0m \u001b[0mX_train_fs\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0mX_test_fs\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0mfs\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0;32m     10\u001b[0m \u001b[1;33m\u001b[0m\u001b[0m\n",
+      "\u001b[1;32mC:\\ProgramData\\Anaconda3\\envs\\MSDS7331\\lib\\site-packages\\sklearn\\feature_selection\\_base.py\u001b[0m in \u001b[0;36mtransform\u001b[1;34m(self, X)\u001b[0m\n\u001b[0;32m     82\u001b[0m             \u001b[1;32mreturn\u001b[0m \u001b[0mnp\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mempty\u001b[0m\u001b[1;33m(\u001b[0m\u001b[1;36m0\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mreshape\u001b[0m\u001b[1;33m(\u001b[0m\u001b[1;33m(\u001b[0m\u001b[0mX\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mshape\u001b[0m\u001b[1;33m[\u001b[0m\u001b[1;36m0\u001b[0m\u001b[1;33m]\u001b[0m\u001b[1;33m,\u001b[0m \u001b[1;36m0\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0;32m     83\u001b[0m         \u001b[1;32mif\u001b[0m \u001b[0mlen\u001b[0m\u001b[1;33m(\u001b[0m\u001b[0mmask\u001b[0m\u001b[1;33m)\u001b[0m \u001b[1;33m!=\u001b[0m \u001b[0mX\u001b[0m\u001b[1;33m.\u001b[0m\u001b[0mshape\u001b[0m\u001b[1;33m[\u001b[0m\u001b[1;36m1\u001b[0m\u001b[1;33m]\u001b[0m\u001b[1;33m:\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[1;32m---> 84\u001b[1;33m             \u001b[1;32mraise\u001b[0m \u001b[0mValueError\u001b[0m\u001b[1;33m(\u001b[0m\u001b[1;34m\"X has a different shape than during fitting.\"\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0m\u001b[0;32m     85\u001b[0m         \u001b[1;32mreturn\u001b[0m \u001b[0mX\u001b[0m\u001b[1;33m[\u001b[0m\u001b[1;33m:\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0msafe_mask\u001b[0m\u001b[1;33m(\u001b[0m\u001b[0mX\u001b[0m\u001b[1;33m,\u001b[0m \u001b[0mmask\u001b[0m\u001b[1;33m)\u001b[0m\u001b[1;33m]\u001b[0m\u001b[1;33m\u001b[0m\u001b[1;33m\u001b[0m\u001b[0m\n\u001b[0;32m     86\u001b[0m \u001b[1;33m\u001b[0m\u001b[0m\n",
+      "\u001b[1;31mValueError\u001b[0m: X has a different shape than during fitting."
+     ]
+    }
+   ],
+   "source": [
+    "# FEATURE SELECTION\n",
+    "\n",
+    "# feature selection\n",
+    "def select_features(X_train, y_train, X_test):\n",
+    "    fs = SelectKBest(score_func=chi2, k='all')\n",
+    "    fs.fit(X_train, y_train)\n",
+    "    X_train_fs = fs.transform(X_train)\n",
+    "    X_test_fs = fs.transform(X_test)\n",
+    "    return X_train_fs, X_test_fs, fs\n",
+    "\n",
+    "# feature selection\n",
+    "X_train_fs, X_test_fs, fs = select_features(X_train, y_train, X_test)\n",
+    "\n",
+    "features = pd.DataFrame()\n",
+    "features['Attributes'] = x_test.columns\n",
+    "features['Feature Selection'] = fs.scores_.round(2)\n",
+    "features.sort_values(by='Feature Selection', ascending=False).head(5)\n",
+    "\n",
+    "# what are scores for the features\n",
+    "fig = px.bar(features, x='Attributes', y='Feature Selection')\n",
+    "fig.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# now let's make a pandas Series with the names and values, and plot them\n",
+    "from matplotlib import pyplot as plt\n",
+    "%matplotlib inline\n",
+    "plt.style.use('ggplot')\n",
+    "\n",
+    "weights = pd.Series(lr_clf.coef_[0],index=df_enc.columns)\n",
+    "weights.plot(kind='bar')\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import plotly\n",
+    "plotly.offline.init_notebook_mode() # run at the start of every notebook\n",
+    "\n",
+    "error_y=dict(\n",
+    "            type='data',\n",
+    "            array=np.std(weights,axis=0),\n",
+    "            visible=True\n",
+    "        )\n",
+    "\n",
+    "graph1 = {'x': df_dummy.columns,\n",
+    "          'y': np.mean(weights,axis=0),\n",
+    "    'error_y':error_y,\n",
+    "       'type': 'bar'}\n",
+    "\n",
+    "fig = dict()\n",
+    "fig['data'] = [graph1]\n",
+    "fig['layout'] = {'title': 'Logistic Regression Weights, with error bars'}\n",
+    "\n",
+    "plotly.offline.iplot(fig)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 2.2 Support Vector Machine<a id='support-vector-machine'></a>\n",
+    "---\n",
+    "***Kris & Walter***"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "X_train_scaled = scl_obj.transform(x_train) # apply to training\n",
+    "X_test_scaled = scl_obj.transform(x_test) \n",
+    "\n",
+    "# lets investigate SVMs on the data and play with the parameters and kernels\n",
+    "from sklearn.svm import SVC\n",
+    "\n",
+    "# train the model just as before\n",
+    "svm_clf = SVC(C=0.5, kernel='rbf', degree=3, gamma='auto') # get object\n",
+    "svm_clf.fit(X_train_scaled, y_train)  # train object\n",
+    "\n",
+    "y_hat = svm_clf.predict(X_test_scaled) # get test set precitions\n",
+    "\n",
+    "acc = mt.accuracy_score(y_test,y_hat)\n",
+    "conf = mt.confusion_matrix(y_test,y_hat)\n",
+    "print('accuracy:', acc )\n",
+    "print(conf)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# if using linear kernel, these make sense to look at (not otherwise, why?)\n",
+    "print(svm_clf.coef_)\n",
+    "weights = pd.Series(svm_clf.coef_[0],index=df_imputed.columns)\n",
+    "weights.plot(kind='bar')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Now let's do some different analysis with the SVM and look at the instances that were chosen as support vectors\n",
+    "\n",
+    "# now lets look at the support for the vectors and see if we they are indicative of anything\n",
+    "# grabe the rows that were selected as support vectors (these are usually instances that are hard to classify)\n",
+    "\n",
+    "# make a dataframe of the training data\n",
+    "df_tested_on = df.iloc[training_df].copy() # saved from above, the indices chosen for training\n",
+    "# now get the support vectors from the trained model\n",
+    "df_support = df_tested_on.iloc[svm_clf.support_,:].copy()\n",
+    "\n",
+    "df_support['Crime Solved'] = 1[svm_clf.support_] # add back in the 'Survived' Column to the pandas dataframe\n",
+    "df['Crime Solved'] = 1 # also add it back in for the original data\n",
+    "df_support.info()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# now lets see the statistics of these attributes\n",
+    "from pandas.plotting import boxplot\n",
+    "\n",
+    "# group the original data and the support vectors\n",
+    "df_grouped_support = df_support.groupby(['Crime Solved'])\n",
+    "df_grouped = df_imputed.groupby(['Crime Solved'])\n",
+    "\n",
+    "# plot KDE of Different variables\n",
+    "vars_to_plot = ['Age','Pclass','IsMale','FamilySize']\n",
+    "\n",
+    "for v in cat_col:\n",
+    "    plt.figure(figsize=(10,4))\n",
+    "    # plot support vector stats\n",
+    "    plt.subplot(1,2,1)\n",
+    "    ax = df_grouped_support[v].plot.kde() \n",
+    "    plt.legend(['Not Solved','Solved'])\n",
+    "    plt.title(v+' (Instances chosen as Support Vectors)')\n",
+    "    \n",
+    "    # plot original distributions\n",
+    "    plt.subplot(1,2,2)\n",
+    "    ax = df_grouped[v].plot.kde() \n",
+    "    plt.legend(['Not Solved','Solved'])\n",
+    "    plt.title(v+' (Original)')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. Model Analysis <a id='model-analysis'></a>\n",
+    "---\n",
+    "***TEAM***<br>\n",
+    "Discuss the advantages of each model for each classification task. Does one type\n",
+    "of model offer superior performance over another in terms of prediction accuracy? In terms of\n",
+    "training time or efficiency? Explain in detail. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 3.2 Logistic Regression Weights<a id='logistic-regression-weights'></a>\n",
+    "---\n",
+    "***Thad & Jamie***<br>\n",
+    "Use the weights from logistic regression to interpret the importance of different\n",
+    "features for each classification task. Explain your interpretation in detail. Why do you think\n",
+    "some variables are more important?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 3.3 Support Vectors<a id='support-vectors'></a>\n",
+    "---\n",
+    "***Kris & Walter***<br>\n",
+    "Look at the chosen support vectors for the classification task. Do these provide\n",
+    "any insight into the data? Explain."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.5-final"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
