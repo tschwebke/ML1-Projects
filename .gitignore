@@ -1,11 +1,5 @@
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
-
-MiniLab/Data/database.csv
-MiniLab/Data/database_rev.csv
-
-Lab 1/Data/database.csv
-Lab 1/Data/database_rev.csv
-
+.DS_Store
 Lab 1/FINAL SUBMISSION/*
 *.csv
